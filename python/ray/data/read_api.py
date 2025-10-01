@@ -2697,7 +2697,7 @@ def from_dask(df: "dask.dataframe.DataFrame") -> MaterializedDataset:
             return df
         else:
             raise ValueError(
-                "Expected a Ray object ref or a Pandas DataFrame, " f"got {type(df)}"
+                f"Expected a Ray object ref or a Pandas DataFrame, got {type(df)}"
             )
 
     ds = from_pandas_refs(
@@ -2827,12 +2827,11 @@ def from_pandas_refs(
         for df in dfs:
             if not isinstance(df, ray.ObjectRef):
                 raise ValueError(
-                    "Expected list of Ray object refs, "
-                    f"got list containing {type(df)}"
+                    f"Expected list of Ray object refs, got list containing {type(df)}"
                 )
     else:
         raise ValueError(
-            "Expected Ray object ref or list of Ray object refs, " f"got {type(df)}"
+            f"Expected Ray object ref or list of Ray object refs, got {type(df)}"
         )
 
     context = DataContext.get_current()
@@ -3860,24 +3859,24 @@ def read_delta(
         path: Path to a Delta Lake table. Supports local paths, S3, GCS, Azure, and
             Unity Catalog managed table paths. Multiple tables are not yet supported.
         version: Version of the Delta table to read. Can be:
-            
+
             * Integer version number (e.g., ``5`` for version 5)
             * ISO 8601 timestamp string (e.g., ``"2024-01-01T00:00:00Z"``)
             * If None, reads the latest version
-            
+
         storage_options: Storage options for cloud authentication. Examples:
-        
+
             * AWS S3: ``{"AWS_REGION": "us-west-2", "AWS_ACCESS_KEY_ID": "...", "AWS_SECRET_ACCESS_KEY": "..."}``
             * Google Cloud: ``{"GOOGLE_SERVICE_ACCOUNT": "path/to/service-account.json"}``
             * Azure: ``{"AZURE_STORAGE_ACCOUNT_KEY": "..."}``
-            
+
         partition_filters: Delta Lake partition filters in DNF (Disjunctive Normal Form).
             Each tuple is ``(column, operator, value)`` where operator can be
             ``=``, ``!=``, ``in``, or ``not in``. Examples:
-            
+
             * ``[("year", "=", "2024")]``
             * ``[("year", "=", "2024"), ("month", "in", ["01", "02"])]``
-            
+
         filesystem: The PyArrow filesystem
         filesystem: The PyArrow filesystem
             implementation to read from. These filesystems are specified in the
@@ -3936,7 +3935,6 @@ def read_delta(
         )
 
     from deltalake import DeltaTable
-    import pyarrow as pa
 
     # This seems reasonable to keep it at one table, even Spark doesn't really support
     # multi-table reads, it's usually up to the developer to keep it in one table.
@@ -3950,7 +3948,7 @@ def read_delta(
     if version is not None and not cdf:
         # Version parameter is for snapshot reads, not CDF
         delta_table_kwargs["version"] = version
-    
+
     # Handle deletion vectors (enabled by default for correctness)
     # Set ignore_deletion_vectors=True in options to skip deletion vector handling
     delta_table_kwargs["options"] = {"ignore_deletion_vectors": False}
@@ -3964,7 +3962,7 @@ def read_delta(
         from ray.data._internal.datasource.delta.delta_cdf import (
             read_delta_cdf_distributed,
         )
-        
+
         return read_delta_cdf_distributed(
             path=path,
             starting_version=starting_version,
@@ -3982,7 +3980,7 @@ def read_delta(
         paths = dt.file_uris(partition_filters=partition_filters)
     else:
         paths = dt.file_uris()
-    
+
     file_extensions = ["parquet"]
 
     return read_parquet(
@@ -4001,6 +3999,7 @@ def read_delta(
         override_num_blocks=override_num_blocks,
         **arrow_parquet_args,
     )
+
 
 def _get_datasource_or_legacy_reader(
     ds: Datasource,

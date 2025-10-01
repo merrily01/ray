@@ -206,14 +206,14 @@ class DeltaUtilities:
         self.aws_utils = AWSUtilities()
         self.gcp_utils = GCPUtilities()
         self.azure_utils = AzureUtilities()
-        
+
         # Get storage options (merges provided with auto-detected)
         self.storage_options = self._get_storage_options()
 
     def _get_storage_options(self) -> Dict[str, str]:
         """
         Get storage options based on the path and detected cloud provider.
-        
+
         Merges user-provided options with auto-detected options,
         with user-provided options taking precedence.
 
@@ -226,11 +226,11 @@ class DeltaUtilities:
             auto_options = self.aws_utils.get_s3_storage_options(self.path)
         elif self.is_azure:
             auto_options = self.azure_utils.get_azure_storage_options(self.path)
-        
+
         # Merge with provided options (provided takes precedence)
         merged_options = auto_options.copy()
         merged_options.update(self.provided_storage_options)
-        
+
         return merged_options
 
     def get_table(self) -> Optional[DeltaTable]:
@@ -313,7 +313,7 @@ def optimize_delta_table(
 ) -> Dict[str, Any]:
     """
     Optimize a Delta Lake table using compact or z-order.
-    
+
     Args:
         path: Path to the Delta table
         mode: Optimization mode - "compact" or "z_order"
@@ -322,23 +322,23 @@ def optimize_delta_table(
         target_size: Target file size in bytes
         max_concurrent_tasks: Maximum concurrent optimization tasks
         storage_options: Cloud storage authentication options
-        
+
     Returns:
         Dict with optimization metrics including files_added, files_removed,
         partitions_optimized, etc.
-        
+
     Raises:
         ValueError: If mode is invalid or z_order_columns missing for z_order mode
         ImportError: If deltalake package is not installed
-        
+
     Examples:
         Compact small files:
-        
+
         >>> import ray
         >>> metrics = ray.data.optimize_delta_table("s3://bucket/table") # doctest: +SKIP
-        
+
         Z-order by columns:
-        
+
         >>> metrics = ray.data.optimize_delta_table( # doctest: +SKIP
         ...     "s3://bucket/table",
         ...     mode="z_order",
@@ -349,9 +349,9 @@ def optimize_delta_table(
         dt_kwargs = {}
         if storage_options:
             dt_kwargs["storage_options"] = storage_options
-        
+
         dt = DeltaTable(path, **dt_kwargs)
-        
+
         opt_kwargs = {}
         if partition_filters:
             opt_kwargs["partition_filters"] = partition_filters
@@ -359,7 +359,7 @@ def optimize_delta_table(
             opt_kwargs["target_size"] = target_size
         if max_concurrent_tasks:
             opt_kwargs["max_concurrent_tasks"] = max_concurrent_tasks
-        
+
         if mode == "compact":
             metrics = dt.optimize.compact(**opt_kwargs)
         elif mode == "z_order":
@@ -368,7 +368,7 @@ def optimize_delta_table(
             metrics = dt.optimize.z_order(columns=z_order_columns, **opt_kwargs)
         else:
             raise ValueError(f"Invalid mode: {mode}. Use 'compact' or 'z_order'")
-        
+
         return dict(metrics)
     except Exception as e:
         logger.error(f"Optimize failed for {path}: {e}")
@@ -385,10 +385,10 @@ def vacuum_delta_table(
 ) -> List[str]:
     """
     Vacuum a Delta Lake table to remove old files.
-    
+
     Removes files that are no longer referenced by the Delta table and are older
     than the retention threshold. Use with caution as this permanently deletes files.
-    
+
     Args:
         path: Path to the Delta table
         retention_hours: Retention period in hours (default: 168 hours = 7 days)
@@ -396,27 +396,27 @@ def vacuum_delta_table(
             for safety.
         enforce_retention_duration: Whether to enforce minimum retention period
         storage_options: Cloud storage authentication options
-        
+
     Returns:
         List of file paths that were deleted (or would be deleted if dry_run=True)
-        
+
     Raises:
         ImportError: If deltalake package is not installed
-        
+
     Examples:
         Preview files to delete (dry run):
-        
+
         >>> import ray
         >>> files = ray.data.vacuum_delta_table("s3://bucket/table", dry_run=True) # doctest: +SKIP
-        
+
         Actually delete old files:
-        
+
         >>> files = ray.data.vacuum_delta_table( # doctest: +SKIP
         ...     "s3://bucket/table",
         ...     retention_hours=168,
         ...     dry_run=False
         ... )
-        
+
     .. warning::
         This operation permanently deletes files. Ensure you have proper backups
         and understand the retention implications before running with dry_run=False.
@@ -425,17 +425,16 @@ def vacuum_delta_table(
         dt_kwargs = {}
         if storage_options:
             dt_kwargs["storage_options"] = storage_options
-        
+
         dt = DeltaTable(path, **dt_kwargs)
-        
+
         files = dt.vacuum(
             retention_hours=retention_hours,
             dry_run=dry_run,
             enforce_retention_duration=enforce_retention_duration,
         )
-        
+
         return list(files)
     except Exception as e:
         logger.error(f"Vacuum failed for {path}: {e}")
         raise
-

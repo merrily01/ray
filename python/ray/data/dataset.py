@@ -43,9 +43,6 @@ from ray.data._internal.datasource.csv_datasink import CSVDatasink
 from ray.data._internal.datasource.delta import (
     DeltaDatasink,
     DeltaWriteConfig,
-    MergeConfig,
-    OptimizationConfig,
-    SCDConfig,
 )
 from ray.data._internal.datasource.iceberg_datasink import IcebergDatasink
 from ray.data._internal.datasource.image_datasink import ImageDatasink
@@ -3479,23 +3476,23 @@ class Dataset:
             this dataset. Merge operations are not supported in v1 - use append or
             overwrite modes.
         """
-        from ray.data._internal.datasource.delta import DeltaDatasink, DeltaWriteConfig
 
         # Build Delta write configuration
-        config = DeltaWriteConfig(
+        DeltaWriteConfig(
             mode=mode,
             partition_cols=partition_cols,
             storage_options=storage_options,
             **delta_kwargs,
         )
 
-        # Create datasink
+        # Create datasink with inline configuration
         datasink = DeltaDatasink(
             path,
             mode=mode,
             partition_cols=partition_cols,
             filesystem=filesystem,
-            **delta_kwargs,
+            schema=delta_kwargs.get("schema"),
+            **{k: v for k, v in delta_kwargs.items() if k != "schema"},
         )
 
         # Execute write
@@ -3504,7 +3501,6 @@ class Dataset:
             ray_remote_args=ray_remote_args or {},
             concurrency=concurrency,
         )
-
 
     @ConsumptionAPI
     @PublicAPI(api_group=IOC_API_GROUP)
@@ -5760,9 +5756,9 @@ class Dataset:
         import pyarrow as pa
 
         ref_bundles: Iterator[RefBundle] = self.iter_internal_ref_bundles()
-        block_refs: List[
-            ObjectRef["pyarrow.Table"]
-        ] = _ref_bundles_iterator_to_block_refs_list(ref_bundles)
+        block_refs: List[ObjectRef["pyarrow.Table"]] = (
+            _ref_bundles_iterator_to_block_refs_list(ref_bundles)
+        )
         # Schema is safe to call since we have already triggered execution with
         # iter_internal_ref_bundles.
         schema = self.schema(fetch_if_missing=True)

@@ -22,11 +22,6 @@ except ImportError:
 
 
 import ray
-from ray.data._internal.datasource.delta import (
-    DeltaDatasink,
-    DeltaWriteConfig,
-    WriteMode,
-)
 from ray.data.datasource.path_util import _unwrap_protocol
 
 # Try to import test fixtures, but handle gracefully if they fail

@@ -344,67 +344,67 @@ class DeltaDatasink(Datasink[List["AddAction"]]):
         from deltalake.transaction import AddAction
 
         try:
-        # Convert blocks to PyArrow tables and combine
-        tables = []
-        for block in blocks:
-            if BlockAccessor.for_block(block).num_rows() > 0:
-                table = BlockAccessor.for_block(block).to_arrow()
-                tables.append(table)
+            # Convert blocks to PyArrow tables and combine
+            tables = []
+            for block in blocks:
+                if BlockAccessor.for_block(block).num_rows() > 0:
+                    table = BlockAccessor.for_block(block).to_arrow()
+                    tables.append(table)
 
-        if not tables:
-            # No data to write
-                return []
+            if not tables:
+                # No data to write
+                    return []
 
-        # Combine all tables
-        combined_table = pa.concat_tables(tables)
+            # Combine all tables
+            combined_table = pa.concat_tables(tables)
 
-            logger.info(
-                f"Task {ctx.task_idx}: Writing {len(combined_table)} rows "
-                f"({combined_table.nbytes} bytes) to Delta table at {self.path}"
-            )
-
-            add_actions = []
-            
-            # Validate partition columns exist in table if specified
-            if self.partition_cols:
-                missing_cols = [col for col in self.partition_cols if col not in combined_table.column_names]
-                if missing_cols:
-                    raise ValueError(
-                        f"Partition columns {missing_cols} not found in table. "
-                        f"Available columns: {combined_table.column_names}"
-                    )
-            
-            # Partition the table if needed
-            if self.partition_cols:
-                # Group by partition values
-                partitioned_tables = self._partition_table(combined_table, self.partition_cols)
-                
                 logger.info(
-                    f"Task {ctx.task_idx}: Writing {len(partitioned_tables)} partition(s)"
+                    f"Task {ctx.task_idx}: Writing {len(combined_table)} rows "
+                    f"({combined_table.nbytes} bytes) to Delta table at {self.path}"
                 )
+
+                add_actions = []
+            
+                # Validate partition columns exist in table if specified
+                if self.partition_cols:
+                    missing_cols = [col for col in self.partition_cols if col not in combined_table.column_names]
+                    if missing_cols:
+                        raise ValueError(
+                            f"Partition columns {missing_cols} not found in table. "
+                            f"Available columns: {combined_table.column_names}"
+                        )
+            
+                # Partition the table if needed
+                if self.partition_cols:
+                    # Group by partition values
+                    partitioned_tables = self._partition_table(combined_table, self.partition_cols)
                 
-                for partition_values, partition_table in partitioned_tables.items():
-                    # Write this partition
+                    logger.info(
+                        f"Task {ctx.task_idx}: Writing {len(partitioned_tables)} partition(s)"
+                    )
+                
+                    for partition_values, partition_table in partitioned_tables.items():
+                        # Write this partition
+                        action = self._write_partition(
+                            partition_table,
+                            partition_values,
+                            ctx.task_idx
+                        )
+                        add_actions.append(action)
+                else:
+                    # Write entire table as single file
                     action = self._write_partition(
-                        partition_table,
-                        partition_values,
+                        combined_table,
+                        {},
                         ctx.task_idx
                     )
                     add_actions.append(action)
-            else:
-                # Write entire table as single file
-                action = self._write_partition(
-                    combined_table,
-                    {},
-                    ctx.task_idx
-                )
-                add_actions.append(action)
 
-                    logger.info(
-                f"Task {ctx.task_idx}: Created {len(add_actions)} AddAction(s)"
-            )
+                        logger.info(
+                    f"Task {ctx.task_idx}: Created {len(add_actions)} AddAction(s)"
+                )
             
-            return add_actions
+                return add_actions
 
         except Exception as e:
             logger.error(
