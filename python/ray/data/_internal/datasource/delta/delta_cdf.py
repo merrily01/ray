@@ -126,7 +126,18 @@ def read_delta_cdf_distributed(
                 # Get schema from the table if no batches were produced
                 arrow_schema = task_dt.schema().to_pyarrow()
                 if cols:
-                    arrow_schema = pa.schema([arrow_schema.field(c) for c in cols])
+                    # Filter schema for requested columns, skipping missing ones
+                    available_fields = []
+                    for c in cols:
+                        try:
+                            available_fields.append(arrow_schema.field(c))
+                        except KeyError:
+                            # Column doesn't exist in Delta table schema
+                            # This is acceptable for CDF reads where columns may vary
+                            pass
+                    if available_fields:
+                        arrow_schema = pa.schema(available_fields)
+                    # If no columns match, use empty schema
                 schema = arrow_schema
             return pa.table({}, schema=schema)
 

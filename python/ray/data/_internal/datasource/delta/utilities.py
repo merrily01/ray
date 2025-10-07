@@ -41,17 +41,22 @@ def convert_pyarrow_filter_to_sql(
         return None
 
     def format_value(value: Any) -> str:
-        """Format a value for SQL."""
+        """Format a value for SQL, properly escaping strings."""
         if value is None:
             return "NULL"
         elif isinstance(value, bool):
             return "TRUE" if value else "FALSE"
         elif isinstance(value, str):
-            return f"'{value}'"
+            # Escape single quotes by doubling them (SQL standard)
+            escaped_value = value.replace("'", "''")
+            return f"'{escaped_value}'"
         elif isinstance(value, (int, float)):
             return str(value)
         else:
-            return f"'{value}'"
+            # Convert to string and escape
+            str_value = str(value)
+            escaped_value = str_value.replace("'", "''")
+            return f"'{escaped_value}'"
 
     def format_condition(col: str, op: str, value: Any) -> str:
         """Format a single condition."""
