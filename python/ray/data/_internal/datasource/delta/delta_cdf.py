@@ -136,17 +136,17 @@ def read_delta_cdf_distributed(
                             # Column doesn't exist in Delta table schema
                             missing_cols.append(c)
                     
-                    # If no columns match, create empty schema
                     if not available_fields:
-                        if missing_cols:
-                            # All requested columns are missing - this is likely an error
-                            raise ValueError(
-                                f"Requested columns not found in Delta table: {missing_cols}. "
-                                f"Available columns: {arrow_schema.names}"
-                            )
-                        arrow_schema = pa.schema([])
+                        # No matching columns found - all requested columns are missing
+                        # This is an error condition that should be reported to the user
+                        raise ValueError(
+                            f"None of the requested columns exist in Delta table. "
+                            f"Requested: {missing_cols}, Available: {arrow_schema.names}"
+                        )
                     else:
+                        # Use only the available fields, filtering out missing ones
                         arrow_schema = pa.schema(available_fields)
+                        
                 schema = arrow_schema
             return pa.table({}, schema=schema)
 
