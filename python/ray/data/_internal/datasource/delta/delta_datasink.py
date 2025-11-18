@@ -73,8 +73,12 @@ class DeltaDatasink(Datasink[List["AddAction"]]):
         """Validate and return WriteMode."""
         if mode not in ["append", "overwrite", "error", "ignore"]:
             if mode == "merge":
-                raise ValueError("Merge mode not supported in v1. Use 'append' or 'overwrite' modes.")
-            raise ValueError(f"Invalid mode '{mode}'. Supported: 'append', 'overwrite', 'error', 'ignore'")
+                raise ValueError(
+                    "Merge mode not supported in v1. Use 'append' or 'overwrite' modes."
+                )
+            raise ValueError(
+                f"Invalid mode '{mode}'. Supported: 'append', 'overwrite', 'error', 'ignore'"
+            )
         return WriteMode(mode)
 
     def on_write_start(self) -> None:
@@ -84,10 +88,14 @@ class DeltaDatasink(Datasink[List["AddAction"]]):
         existing_table = try_get_deltatable(self.path, self.storage_options)
 
         if self.mode == WriteMode.ERROR and existing_table:
-            raise ValueError(f"Delta table already exists at {self.path}. Use mode='append' or 'overwrite'.")
+            raise ValueError(
+                f"Delta table already exists at {self.path}. Use mode='append' or 'overwrite'."
+            )
 
         if self.mode == WriteMode.IGNORE and existing_table:
-            logger.info(f"Delta table already exists at {self.path}. Skipping write due to mode='ignore'.")
+            logger.info(
+                f"Delta table already exists at {self.path}. Skipping write due to mode='ignore'."
+            )
             self._skip_write = True
         else:
             self._skip_write = False
@@ -123,15 +131,22 @@ class DeltaDatasink(Datasink[List["AddAction"]]):
         """Validate that all partition columns exist in the table schema."""
         if not self.partition_cols:
             return
-        missing_cols = [col for col in self.partition_cols if col not in table.column_names]
+        missing_cols = [
+            col for col in self.partition_cols if col not in table.column_names
+        ]
         if missing_cols:
-            raise ValueError(f"Partition columns {missing_cols} not found in table schema. Available columns: {table.column_names}.")
+            raise ValueError(
+                f"Partition columns {missing_cols} not found in table schema. Available columns: {table.column_names}."
+            )
 
     def _write_table_data(self, table: pa.Table, task_idx: int) -> List["AddAction"]:
         """Write table data as partitioned or non-partitioned Parquet files."""
         if self.partition_cols:
             partitioned_tables = self._partition_table(table, self.partition_cols)
-            return [self._write_partition(partition_table, partition_values, task_idx) for partition_values, partition_table in partitioned_tables.items()]
+            return [
+                self._write_partition(partition_table, partition_values, task_idx)
+                for partition_values, partition_table in partitioned_tables.items()
+            ]
         return [self._write_partition(table, (), task_idx)]
 
     def _partition_table(
@@ -284,10 +299,14 @@ class DeltaDatasink(Datasink[List["AddAction"]]):
 
         if not all_file_actions:
             if self.schema and not existing_table:
-                logger.info(f"Creating empty Delta table at {self.path} with specified schema")
+                logger.info(
+                    f"Creating empty Delta table at {self.path} with specified schema"
+                )
                 self._create_empty_table()
             else:
-                logger.info(f"No files to commit for Delta table at {self.path}. Skipping table creation.")
+                logger.info(
+                    f"No files to commit for Delta table at {self.path}. Skipping table creation."
+                )
             return
 
         if existing_table:
@@ -299,14 +318,20 @@ class DeltaDatasink(Datasink[List["AddAction"]]):
         self, write_result: WriteResult[List["AddAction"]]
     ) -> List["AddAction"]:
         """Collect all AddAction objects from distributed write tasks."""
-        return [action for task_file_actions in write_result.write_returns for action in task_file_actions]
+        return [
+            action
+            for task_file_actions in write_result.write_returns
+            for action in task_file_actions
+        ]
 
     def _create_empty_table(self) -> None:
         """Create empty Delta table with specified schema."""
         from deltalake.transaction import create_table_with_add_actions
 
         if not self.schema:
-            raise ValueError("Cannot create empty Delta table without explicit schema. Provide schema parameter to write_delta().")
+            raise ValueError(
+                "Cannot create empty Delta table without explicit schema. Provide schema parameter to write_delta()."
+            )
 
         delta_schema = self._convert_schema_to_delta(self.schema)
         create_table_with_add_actions(
@@ -344,7 +369,9 @@ class DeltaDatasink(Datasink[List["AddAction"]]):
             commit_properties=self.delta_write_config.commit_properties,
             post_commithook_properties=self.delta_write_config.post_commithook_properties,
         )
-        logger.info(f"Created Delta table at {self.path} with {len(file_actions)} files")
+        logger.info(
+            f"Created Delta table at {self.path} with {len(file_actions)} files"
+        )
 
     def _commit_to_existing_table(
         self, existing_table: "DeltaTable", file_actions: List["AddAction"]
@@ -358,11 +385,14 @@ class DeltaDatasink(Datasink[List["AddAction"]]):
             )
 
         if self.mode == WriteMode.IGNORE:
-            logger.info(f"Table created at {self.path} during write. Skipping commit due to mode='ignore'.")
+            logger.info(
+                f"Table created at {self.path} during write. Skipping commit due to mode='ignore'."
+            )
             return
 
         transaction_mode = "overwrite" if self.mode == WriteMode.OVERWRITE else "append"
-        transaction = existing_table.create_write_transaction(
+        # create_write_transaction commits internally and returns None
+        existing_table.create_write_transaction(
             actions=file_actions,
             mode=transaction_mode,
             schema=existing_table.schema(),
@@ -370,8 +400,9 @@ class DeltaDatasink(Datasink[List["AddAction"]]):
             commit_properties=self.delta_write_config.commit_properties,
             post_commithook_properties=self.delta_write_config.post_commithook_properties,
         )
-        transaction.commit()
-        logger.info(f"Committed {len(file_actions)} files to Delta table at {self.path} (mode={transaction_mode})")
+        logger.info(
+            f"Committed {len(file_actions)} files to Delta table at {self.path} (mode={transaction_mode})"
+        )
 
     def _infer_schema(self, add_actions: List["AddAction"]) -> pa.Schema:
         """Infer schema from first file and partition columns."""
@@ -415,13 +446,17 @@ class DeltaDatasink(Datasink[List["AddAction"]]):
         try:
             return DeltaSchema.from_arrow(pa_schema)
         except (ValueError, TypeError) as e:
-            logger.warning(f"Failed to convert PyArrow schema using Arrow C Data Interface: {e}. Falling back to JSON-based conversion.")
+            logger.warning(
+                f"Failed to convert PyArrow schema using Arrow C Data Interface: {e}. Falling back to JSON-based conversion."
+            )
 
         try:
             schema_json = self._pyarrow_schema_to_delta_json(pa_schema)
             return DeltaSchema.from_json(schema_json)
         except Exception as e:
-            raise ValueError(f"Failed to convert PyArrow schema to Delta schema. Both Arrow C Data Interface and JSON conversion failed. Error: {e}") from e
+            raise ValueError(
+                f"Failed to convert PyArrow schema to Delta schema. Both Arrow C Data Interface and JSON conversion failed. Error: {e}"
+            ) from e
 
     def _pyarrow_schema_to_delta_json(self, pa_schema: pa.Schema) -> str:
         """Convert PyArrow schema to Delta schema JSON format."""
@@ -475,7 +510,9 @@ class DeltaDatasink(Datasink[List["AddAction"]]):
 
     def on_write_failed(self, error: Exception) -> None:
         """Handle write failure."""
-        logger.error(f"Delta write failed for {self.path}: {error}. Uncommitted files will be cleaned by Delta vacuum.")
+        logger.error(
+            f"Delta write failed for {self.path}: {error}. Uncommitted files will be cleaned by Delta vacuum."
+        )
 
     @property
     def supports_distributed_writes(self) -> bool:
